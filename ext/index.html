@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flash Memory Monitor</title>
+    <style>
+        body {
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        #memory-view {
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            flex: 3;
+            font-size: 12px;
+        }
+        #log-view {
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre;
+            background-color: #F0F0F0;
+            border: 1px solid #ddd;
+            border-top: 2px solid #888;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            flex: 2;
+        }
+        .highlight-success-1 { background-color: rgba(32, 255, 32, 0.9); }
+        .highlight-success-2 { background-color: rgba(32, 255, 32, 0.7); }
+        .highlight-success-3 { background-color: rgba(32, 255, 32, 0.5); }
+        .highlight-success-4 { background-color: rgba(32, 255, 32, 0.3); }
+        .highlight-success-5 { background-color: rgba(32, 255, 32, 0.1); }
+        .highlight-error-1 { background-color: rgba(255, 32, 32, 0.9); }
+        .highlight-error-2 { background-color: rgba(255, 32, 32, 0.7); }
+        .highlight-error-3 { background-color: rgba(255, 32, 32, 0.5); }
+        .highlight-error-4 { background-color: rgba(255, 32, 32, 0.3); }
+        .highlight-error-5 { background-color: rgba(255, 32, 32, 0.1); }
+    </style>
+</head>
+<body>
+    <div id="memory-view">Loading flash memory data...</div>
+    <div id="log-view">Loading log data...</div>
+
+    <script src="socket.io.min.js"></script>
+    <script>
+        const memoryFile = '/flash_memory.bin';
+        const logFile = '/flash_operations.log';
+        let recentChanges = [];
+
+        async function fetchLogData() {
+            try {
+                const response = await fetch(logFile);
+                if (response.ok) {
+                    const logText = await response.text();
+                    const logLines = logText.trim().split('\n').filter(line => line);
+                    recentChanges = [];
+                    for (let i = logLines.length - 1; i >= 0; i--) {
+                        const logEntry = JSON.parse(logLines[i]);
+                        if (logEntry.operation === 'Program') {
+                            const startAddress = parseInt(logEntry.address, 16);
+                            const dataHex = logEntry.data.replace('0x', '');
+                            const dataLength = dataHex.length / 2;
+                            const status = logEntry.status;
+
+                            recentChanges.push({
+                                start: startAddress,
+                                end: startAddress + dataLength - 1,
+                                status: status
+                            });
+                            if (recentChanges.length === 5) break;
+                        }
+                    }
+                    const logView = document.getElementById('log-view');
+                    logView.textContent = logText;
+                    logView.scrollTop = logView.scrollHeight;
+                } else {
+                    document.getElementById('log-view').textContent = 'Error loading log data.';
+                }
+            } catch (error) {
+                console.error('Error fetching log data:', error);
+                document.getElementById('log-view').textContent = 'Error loading log data.';
+            }
+        }
+
+        async function fetchMemoryData() {
+            try {
+                const response = await fetch(memoryFile);
+                if (response.ok) {
+                    const arrayBuffer = await response.arrayBuffer();
+                    const memoryData = new Uint8Array(arrayBuffer);
+                    const memoryLines = [];
+                    for (let i = 0; i < memoryData.length; i += 32) {
+                        let line = `<span>${i.toString(16).padStart(8, '0')}: </span>`;
+                        for (let j = 0; j < 32; j++) {
+                            if (i + j < memoryData.length) {
+                                const byteAddress = i + j;
+                                const byteValue = memoryData[byteAddress].toString(16).padStart(2, '0');
+                                const recentChangeIndex = recentChanges.findIndex(
+                                    change => byteAddress >= change.start && byteAddress <= change.end
+                                );
+                                if (recentChangeIndex >= 0) {
+                                    const changeStatus = recentChanges[recentChangeIndex].status;
+                                    const highlightType = changeStatus.includes('Success') ? 'success' : 
+                                                          changeStatus.includes('Error') ? 'error' : 'other';
+                                    const highlightClass = `highlight-${highlightType}-${recentChangeIndex + 1}`;
+                                    line += `<span class="${highlightClass}">${byteValue}</span> `;
+                                } else {
+                                    line += `${byteValue} `;
+                                }
+                            }
+                        }
+                        memoryLines.push(line.trim());
+                    }
+                    document.getElementById('memory-view').innerHTML = memoryLines.join('<br>');
+                } else {
+                    document.getElementById('memory-view').textContent = 'Error loading flash memory data.';
+                }
+            } catch (error) {
+                console.error('Error fetching flash memory:', error);
+                document.getElementById('memory-view').textContent = 'Error loading flash memory data.';
+            }
+        }
+
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        socket.on('update', function(msg) {
+            console.log('Received update event:', msg);
+            processUpdate();
+        });
+
+        async function processUpdate() {
+            await fetchMemoryData();
+            await fetchLogData();
+            socket.emit('update_ack');
+        }
+
+        processUpdate();
+    </script>
+</body>
+</html>
