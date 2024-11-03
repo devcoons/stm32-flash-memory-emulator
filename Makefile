@@ -11,6 +11,7 @@ EXAMPLE_EXEC = bin/example
 
 
 build: $(LIB_SRC)
+	mkdir -p bin
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(BIN)/libmylibrary.so $^
 
 build-example: build $(EXM_SRC)
