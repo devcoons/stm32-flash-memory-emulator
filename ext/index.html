@@ -4,50 +4,28 @@
     <meta charset="UTF-8">
     <title>Flash Memory Monitor</title>
     <style>
-        body {
-            font-family: monospace;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
-        }
-        #memory-view {
-            padding: 10px;
-            overflow-y: auto;
-            white-space: pre;
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            flex: 3;
-            font-size: 12px;
-        }
-        #log-view {
-            padding: 10px;
-            overflow-y: auto;
-            white-space: pre;
-            background-color: #F0F0F0;
-            border: 1px solid #ddd;
-            border-top: 2px solid #888;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            flex: 2;
-        }
-        .highlight-success-1 { background-color: rgba(32, 255, 32, 0.9); }
-        .highlight-success-2 { background-color: rgba(32, 255, 32, 0.7); }
-        .highlight-success-3 { background-color: rgba(32, 255, 32, 0.5); }
-        .highlight-success-4 { background-color: rgba(32, 255, 32, 0.3); }
-        .highlight-success-5 { background-color: rgba(32, 255, 32, 0.1); }
-        .highlight-error-1 { background-color: rgba(255, 32, 32, 0.9); }
-        .highlight-error-2 { background-color: rgba(255, 32, 32, 0.7); }
-        .highlight-error-3 { background-color: rgba(255, 32, 32, 0.5); }
-        .highlight-error-4 { background-color: rgba(255, 32, 32, 0.3); }
-        .highlight-error-5 { background-color: rgba(255, 32, 32, 0.1); }
+        footer,header{text-align:center;background-color:#343a40;color:#fff}
+        body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;display:flex;flex-direction:column;height:100vh;
+        margin:0;background-color:#e9ecef;color:#212529}header{padding:15px;font-size:1.5em;flex:0 0 auto}
+        #content{display:flex;flex-direction:column;flex:1 1 auto;overflow:hidden}
+        #log-view,#memory-view{padding:15px;overflow-y:auto;white-space:pre-wrap;background-color:#fff;border:1px solid #ced4da;
+        border-radius:5px;margin:10px;font-family:'Courier New',Courier,monospace;line-height:1.5}
+        #memory-view{flex:3 1 0;font-size:13px}#log-view{flex:1 1 0;font-size:12px;background-color:#f8f9fa}
+        .highlight-success-1{background-color:rgba(40,167,69,.9)}.highlight-success-2{background-color:rgba(40,167,69,.7)}
+        .highlight-success-3{background-color:rgba(40,167,69,.5)}.highlight-success-4{background-color:rgba(40,167,69,.3)}
+        .highlight-success-5{background-color:rgba(40,167,69,.1)}.highlight-error-1{background-color:rgba(220,53,69,.9)}
+        .highlight-error-2{background-color:rgba(220,53,69,.7)}.highlight-error-3{background-color:rgba(220,53,69,.5)}
+        .highlight-error-4{background-color:rgba(220,53,69,.3)}.highlight-error-5{background-color:rgba(220,53,69,.1)}
+        footer{padding:10px;flex:0 0 auto}
     </style>
 </head>
 <body>
-    <div id="memory-view">Loading flash memory data...</div>
-    <div id="log-view">Loading log data...</div>
+    <header>STM32 Flash Memory Emulation Monitor</header>
+    <div id="content">
+        <div id="memory-view">Loading flash memory data...</div>
+        <div id="log-view">Loading log data...</div>
+    </div>
+    <footer>&copy; 2024 Devcoons</footer>
 
     <script src="socket.io.min.js"></script>
     <script>
@@ -69,12 +47,7 @@
                             const dataHex = logEntry.data.replace('0x', '');
                             const dataLength = dataHex.length / 2;
                             const status = logEntry.status;
-
-                            recentChanges.push({
-                                start: startAddress,
-                                end: startAddress + dataLength - 1,
-                                status: status
-                            });
+                            recentChanges.push({start: startAddress, end: startAddress + dataLength - 1, status: status});
                             if (recentChanges.length === 5) break;
                         }
                     }
@@ -85,11 +58,9 @@
                     document.getElementById('log-view').textContent = 'Error loading log data.';
                 }
             } catch (error) {
-                console.error('Error fetching log data:', error);
                 document.getElementById('log-view').textContent = 'Error loading log data.';
             }
         }
-
         async function fetchMemoryData() {
             try {
                 const response = await fetch(memoryFile);
@@ -124,32 +95,19 @@
                     document.getElementById('memory-view').textContent = 'Error loading flash memory data.';
                 }
             } catch (error) {
-                console.error('Error fetching flash memory:', error);
                 document.getElementById('memory-view').textContent = 'Error loading flash memory data.';
             }
         }
 
         const socket = io();
-
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-        });
-
         socket.on('update', function(msg) {
-            console.log('Received update event:', msg);
             processUpdate();
         });
-
         async function processUpdate() {
             await fetchMemoryData();
             await fetchLogData();
             socket.emit('update_ack');
         }
-
         processUpdate();
     </script>
 </body>

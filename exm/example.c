@@ -48,7 +48,7 @@ int main()
     srand(time(NULL));
 
     uint32_t address = 0x00000010;
-    uint64_t data = rand();
+    uint64_t data = rnd64(0);
 
     printf("Attempting to program before unlocking the flash...\n");
     if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address, data) != HAL_OK) {
@@ -82,7 +82,7 @@ int main()
 
     for (uint32_t i = 0; i <= 0x100; i += 8) {
         uint32_t prog_address = address + i;
-        uint64_t random_data = rnd64(i);
+        uint64_t random_data = rnd64(i+1);
         printf("Programming data at aligned address 0x%08X with data 0x%016lX...\n", prog_address, random_data);
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, prog_address, random_data) != HAL_OK) {
             printf("Failed to program data.\n");
